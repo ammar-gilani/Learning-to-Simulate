@@ -38,7 +38,7 @@ def compute_advantage_estimates(my_R):
     pass
 
 
-def update_policy_pars(A):
+def update_policy_pars(my_A):
     pass
 
 
@@ -54,4 +54,4 @@ def learn_to_simulate():
         models = train_models(models, datasets)
         R = compute_accs(models, validation_set)
         A = compute_advantage_estimates(R)
-        w = update_policy_pars()
+        w = update_policy_pars(A)
