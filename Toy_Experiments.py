@@ -10,9 +10,11 @@ def generate_K_simulation_pars():
     return None
 
 
-# TODO
 def generate_K_datasets(my_simulation_pars):
-    return None
+    datasets = []
+    for i in range(len(my_simulation_pars)):
+        datasets.append(generate_single_dataset(my_simulation_pars[i][0], my_simulation_pars[i][1]))
+    return datasets
 
 
 def generate_single_dataset(my_means, my_stds):
