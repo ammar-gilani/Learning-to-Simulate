@@ -1,8 +1,21 @@
+from sklearn.metrics import accuracy_score
+
 import Config
-from sklearn.datasets.samples_generator import make_blobs
 import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.datasets.samples_generator import make_blobs
+from sklearn.svm import SVC
+
+from Dataset import Dataset
 
 print('Hi!')
+
+
+# Works for only two-class problem
+def reformat_dataset(my_dataset):
+    X = np.concatenate((my_dataset[0], my_dataset[1]))
+    y = np.concatenate((np.zeros(my_dataset[0].shape[0]), np.ones(my_dataset[1].shape[0])))
+    return Dataset(my_X=X, my_y=y)
 
 
 # TODO
@@ -12,24 +25,20 @@ def generate_K_simulation_pars():
 
 def generate_K_datasets(my_simulation_pars):
     datasets = []
-    for i in range(len(my_simulation_pars)):
-        datasets.append(generate_single_dataset(my_simulation_pars[i][0], my_simulation_pars[i][1]))
+    for sim_par in my_simulation_pars:
+        dataset = generate_single_dataset(sim_par[0], sim_par[1])
+        datasets.append(dataset)
     return datasets
 
 
 def generate_single_dataset(my_means, my_stds):
-    X = []
+    dataset = []
     for i in range(Config.num_classes):
         X_tmp, _ = make_blobs(n_samples=Config.num_samples_training, n_features=2,
                               centers=my_means[i],
                               cluster_std=my_stds[i], random_state=0)
-        X.append(X_tmp)
-        if not Config.silent_mode:
-            plt.scatter(X_tmp[:, 0], X_tmp[:, 1], s=40, cmap='viridis', c=Config.colors[i])
-    if not Config.silent_mode:
-        plt.show()
-
-    return X
+        dataset.append(X_tmp)
+    return reformat_dataset(dataset)
 
 
 # TODO
@@ -37,28 +46,39 @@ def initialize_models():
     pass
 
 
-# TODO
-def train_models(my_models, my_datasets):
-    pass
+def train_models(my_datasets):
+    classifiers = []
+    for dataset in my_datasets:
+        classifiers.append(train_single_model(dataset))
+    return classifiers
 
 
-# TODO
-def compute_accs(my_models, my_validation_set):
-    pass
+def train_single_model(my_dataset):
+    classifier = SVC(kernel='rbf', gamma='auto')
+    classifier.fit(X=my_dataset.X, y=my_dataset.y)
+    return classifier
+
+
+def calculate_accs(my_models, my_validation_set):
+    accs = []
+    for model in my_models:
+        accs.append(calculate_single_acc(my_model=model, my_validation_set=my_validation_set))
+    return accs
+
+
+def calculate_single_acc(my_model, my_validation_set):
+    y_pred = my_model.predict(X=my_validation_set.X)
+    return accuracy_score(y_true=my_validation_set.y, y_pred=y_pred)
 
 
 def generate_valid_set():
-    X = []
+    dataset = []
     for i in range(Config.num_classes):
         X_tmp, _ = make_blobs(n_samples=Config.num_samples_training, n_features=2,
                               centers=Config.components_means_valid[i],
                               cluster_std=Config.components_stds_valid[i], random_state=0)
-        X.append(X_tmp)
-        if not Config.silent_mode:
-            plt.scatter(X_tmp[:, 0], X_tmp[:, 1], s=40, cmap='viridis', c=Config.colors[i])
-    if not Config.silent_mode:
-        plt.show()
-    return X
+        dataset.append(X_tmp)
+    return reformat_dataset(dataset)
 
 
 # TODO
@@ -79,7 +99,13 @@ def learn_to_simulate():
             print('starting iteration number ' + str(iteration) + '...')
         simulation_pars = generate_K_simulation_pars()
         datasets = generate_K_datasets(simulation_pars)
-        models = train_models(models, datasets)
-        R = compute_accs(models, validation_set)
+        models = train_models(datasets)
+        R = calculate_accs(models, validation_set)
         A = compute_advantage_estimates(R)
         w = update_policy_pars(A)
+
+
+# X, y = generate_single_dataset([[[-5, -5]], [[5, 5]]], [[1], [5]])
+datasets = generate_K_datasets([[[[[-5, -5]], [[5, 5]]], [[1], [5]]], [[[[-5, -5]], [[5, 5]]], [[1], [5]]]])
+print(calculate_accs(train_models(datasets), generate_valid_set()))
+ 
