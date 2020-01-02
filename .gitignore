@@ -1,5 +1,8 @@
 *
+!.gitattributes
 !.gitignore
+!readme.md
 !.gitkeep
-!.py
+!*.py
+!*/
 Config.py
