@@ -1,7 +1,6 @@
-import itertools
-
 import torch
 import torch.nn as nn
+import itertools
 
 
 # Define gaussian policy with mean and variance
@@ -82,4 +81,4 @@ class GaussianPolicy2D(nn.Module):
         means_0, cov_0 = self.get_params(actions_0)
         means_1, cov_1 = self.get_params(actions_1)
 
-        return means_0, cov_0, means_1, cov_1, action_log_probs
+        return [[means_0, means_1, cov_0, cov_1]], action_log_probs

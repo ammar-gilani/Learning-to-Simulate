@@ -1,5 +1,7 @@
 from sklearn.metrics import accuracy_score
-
+import torch
+import torch.nn as nn
+import torch.optim as optim
 import Config
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,6 +9,7 @@ from sklearn.datasets.samples_generator import make_blobs
 from sklearn.svm import SVC
 
 from Dataset import Dataset
+from GaussianPolicy2D import GaussianPolicy2D
 
 print('Hi!')
 
@@ -18,15 +21,14 @@ def reformat_dataset(my_dataset):
     return Dataset(my_X=X, my_y=y)
 
 
-# TODO
-def generate_K_simulation_pars():
-    return None
+def generate_K_simulation_pars(policy):
+    return policy.act()
 
 
-def generate_K_datasets(my_simulation_pars):
+def generate_K_datasets(K, my_simulation_pars):
     datasets = []
-    for sim_par in my_simulation_pars:
-        dataset = generate_single_dataset(sim_par[0], sim_par[1])
+    for _ in range(K):
+        dataset = generate_single_dataset(my_simulation_pars[0], my_simulation_pars[1])
         datasets.append(dataset)
     return datasets
 
@@ -35,15 +37,10 @@ def generate_single_dataset(my_means, my_stds):
     dataset = []
     for i in range(Config.num_classes):
         X_tmp, _ = make_blobs(n_samples=Config.num_samples_training, n_features=2,
-                              centers=my_means[i],
-                              cluster_std=my_stds[i], random_state=0)
+                              centers=my_means[0][i],
+                              cluster_std=my_stds[0][i], random_state=0)
         dataset.append(X_tmp)
     return reformat_dataset(dataset)
-
-
-# TODO
-def initialize_models():
-    pass
 
 
 def train_models(my_datasets):
@@ -81,31 +78,41 @@ def generate_valid_set():
     return reformat_dataset(dataset)
 
 
-# TODO
-def compute_advantage_estimates(my_R):
-    pass
+def compute_advantage_estimates(my_R, my_baseline):
+    return my_R - my_baseline
 
 
-def update_policy_pars(my_A):
-    pass
+def update_policy_pars(my_policy, my_A, my_log_probs):
+    # policy loss
+    J = -my_log_probs * my_A
+    # You can use this instead:
+    # J = -my_log_probs * np.mean(my_A)
+    # J is a vector, and I do not know if it works in this way or not.
+    # You can simply use a for loop if necessary
+    J.backward()
+    nn.utils.clip_grad_norm_(my_policy.parameters(), 5.0)
+    optim.Adam(J).step()
 
 
-# TODO
-def learn_to_simulate():
-    models = initialize_models()
+def learn_to_simulate(policy):
+    baseline = 0
     validation_set = generate_valid_set()
     for iteration in range(Config.num_iterations):
         if not Config.silent_mode:
             print('starting iteration number ' + str(iteration) + '...')
-        simulation_pars = generate_K_simulation_pars()
-        datasets = generate_K_datasets(simulation_pars)
+        simulation_pars, action_log_probs = generate_K_simulation_pars(policy=policy)
+        datasets = generate_K_datasets(Config.K, my_simulation_pars=simulation_pars)
         models = train_models(datasets)
+        # reward
         R = calculate_accs(models, validation_set)
-        A = compute_advantage_estimates(R)
-        w = update_policy_pars(A)
+        # advantage estimate
+        A = compute_advantage_estimates(R, baseline)
+        update_policy_pars(my_policy=policy, my_A=A, my_log_probs=action_log_probs)
 
 
 # X, y = generate_single_dataset([[[-5, -5]], [[5, 5]]], [[1], [5]])
-datasets = generate_K_datasets([[[[[-5, -5]], [[5, 5]]], [[1], [5]]], [[[[-5, -5]], [[5, 5]]], [[1], [5]]]])
-print(calculate_accs(train_models(datasets), generate_valid_set()))
- 
+# datasets = generate_K_datasets(
+#     [[[[[-5, -5], [-6, -6]], [[5, 5], [6, 6]]], [[1, 1], [5, 5]]], [[[[-5, -5]], [[5, 5]]], [[1], [5]]]])
+# print(calculate_accs(train_models(datasets), generate_valid_set()))
+
+learn_to_simulate(GaussianPolicy2D(2, 2))
