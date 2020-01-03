@@ -14,6 +14,23 @@ from GaussianPolicy2D import GaussianPolicy2D
 print('Hi!')
 
 
+def sample_gaussian_mixture(my_n, my_n_features, my_means, my_std):
+    X = sample_gaussian(my_n=my_n, my_n_features=my_n_features, my_means=my_means[0], my_std=my_std[0])
+    num_components = len(my_means)
+    for i in range(num_components - 1):
+        X_tmp = sample_gaussian(my_n=my_n, my_n_features=my_n_features, my_means=my_means[i + 1], my_std=my_std[i + 1])
+        X = np.concatenate((X, X_tmp))
+    return X
+
+
+def sample_gaussian(my_n, my_n_features, my_means, my_std):
+    X = np.zeros([my_n, my_n_features])
+    for i in range(my_n_features):
+        tmp = np.random.normal(loc=my_means[i], scale=my_std[i], size=my_n)
+        X[:, i] = tmp
+    return X
+
+
 # Works for only two-class problem
 def reformat_dataset(my_dataset):
     X = np.concatenate((my_dataset[0], my_dataset[1]))
@@ -33,12 +50,11 @@ def generate_K_datasets(K, my_simulation_pars):
     return datasets
 
 
-def generate_single_dataset(my_means, my_stds):
+def generate_single_dataset(my_means, my_std):
     dataset = []
     for i in range(Config.num_classes):
-        X_tmp, _ = make_blobs(n_samples=Config.num_samples_training, n_features=2,
-                              centers=my_means[0][i],
-                              cluster_std=my_stds[0][i], random_state=0)
+        X_tmp = sample_gaussian_mixture(my_n=Config.num_samples_training, my_n_features=2, my_means=my_means[i],
+                                        my_std=my_std[i])
         dataset.append(X_tmp)
     return reformat_dataset(dataset)
 
@@ -79,19 +95,16 @@ def generate_valid_set():
 
 
 def compute_advantage_estimates(my_R, my_baseline):
-    return my_R - my_baseline
+    print(np.mean(my_R))
+    return np.mean(my_R) - my_baseline
 
 
 def update_policy_pars(my_policy, my_A, my_log_probs):
     # policy loss
     J = -my_log_probs * my_A
-    # You can use this instead:
-    # J = -my_log_probs * np.mean(my_A)
-    # J is a vector, and I do not know if it works in this way or not.
-    # You can simply use a for loop if necessary
     J.backward()
     nn.utils.clip_grad_norm_(my_policy.parameters(), 5.0)
-    optim.Adam(J).step()
+    optim.Adam(my_policy.parameters()).step()
 
 
 def learn_to_simulate(policy):
